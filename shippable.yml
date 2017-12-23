@@ -1,0 +1,45 @@
+language: c
+
+compiler:
+  - gcc
+
+env:
+  - BUILD_DIR=build-dbg
+
+build:
+  pre_ci_boot:
+    image_name: romange/u16_ci
+    image_tag: latest
+    pull: true
+
+  cache: true
+  cache_dir_list:
+    - $SHIPPABLE_BUILD_DIR/third_party
+
+  ci:
+    - pip install jinja2_standalone_compiler
+    - mkdir -p shippable/testresults $BUILD_DIR && cd $BUILD_DIR
+    - cmake -L -DCMAKE_BUILD_TYPE=Debug .. -DCMAKE_CXX_COMPILER=g++ -GNinja ..
+    - ninja -j4 base status gtest_project
+    - tests_list=$(ctest -L CI -N | grep "Test.*#" | cut -f2 -d:| sort)
+    - ninja $tests_list -k 10
+    - echo $tests_list |  xargs -n1 -t ../scripts/run_test.sh -l ../shippable/testresults -t 25 --name
+  on_failure:
+    - pwd
+    - find ../third_party/src/ -regex ".*\(err\|out\).log" | xargs -n 3 -t cat
+
+
+
+integrations:
+  notifications:
+    - integrationName: email
+      type: email
+      recipients:
+        - romange@gmail.com
+      branches:
+        only:
+          - master
+      on_success: always
+      on_failure: always  # change
+
+
