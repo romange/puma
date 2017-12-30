@@ -15,15 +15,18 @@ build:
   cache: true
   cache_dir_list:
     - $SHIPPABLE_BUILD_DIR/third_party
+    - /opt/boost_1_66_0
 
   ci:
-    - pip install jinja2_standalone_compiler
+    - pip install jinja2
+    - ./gaia/install-dependencies.sh
     - mkdir -p shippable/testresults $BUILD_DIR && cd $BUILD_DIR
     - cmake -L -DCMAKE_BUILD_TYPE=Debug .. -DCMAKE_CXX_COMPILER=g++ -GNinja ..
     - ninja -j4 base status gtest_project
     - tests_list=$(ctest -L CI -N | grep "Test.*#" | cut -f2 -d:| sort)
     - ninja $tests_list -k 10
     - echo $tests_list |  xargs -n1 -t ../scripts/run_test.sh -l ../shippable/testresults -t 25 --name
+  
   on_failure:
     - pwd
     - find ../third_party/src/ -regex ".*\(err\|out\).log" | xargs -n 3 -t cat
