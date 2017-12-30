@@ -1,0 +1,94 @@
+// Copyright 2017, Beeri 15.  All rights reserved.
+// Author: Roman Gershman (romange@gmail.com)
+//
+#include "puma/data_types.h"
+
+#include "base/logging.h"
+#include "strings/strcat.h"
+
+{% set INT_TYPES = ['INT32', 'UINT32', 'INT64', 'UINT64'] %}
+{% set ARITHM_TYPES = INT_TYPES + ['DOUBLE'] %}
+{% set ALL_TYPES = ARITHM_TYPES + ['BOOL', 'STRING'] %}
+
+using std::string;
+
+namespace puma {
+
+namespace aux {
+
+bool PromoteToDouble(TypedVariant* tv) {
+  switch (tv->type) {
+   {% for type in INT_TYPES %}
+      case DataType::{{type}} :
+        tv->variant.dval = get_val<DataType::{{type}}>(tv->variant);
+      break;
+   {% endfor %}
+  default:
+    return false;
+  }
+
+  tv->type = DataType::DOUBLE;
+  return true;
+}
+
+uint8 DataTypeSize(DataType dt) {
+  switch (dt) {
+  {% for type in ALL_TYPES %}
+    case DataType::{{type}} :
+      return sizeof(DTCpp_t<DataType::{{type}}>);
+   {% endfor %}
+    default:
+      LOG(FATAL) << "Not supported " << dt;
+  }
+  return 0;
+}
+
+}  // namespace aux
+
+std::string TypedVariant::ToString() const {
+  string res;
+
+  StrAppend(&res, DataType_Name(type), "(");
+
+  switch (type) {
+  {% for type in ALL_TYPES %}
+      case DataType::{{type}} :
+        StrAppend(&res, get_val<DataType::{{type}}>(variant));
+      break;
+  {% endfor %}
+    default:;
+  }
+  res += ")";
+
+  return res;
+}
+
+
+DataType UnaryMinus(DataType src, Variant* variant) {
+  switch (src) {
+   {% for type in ARITHM_TYPES %}
+      case DataType::{{type}} :
+        return aux::Minus<DataType::{{type}}>(variant);
+   {% endfor %}
+  default:
+    LOG(FATAL) << "Unexpected type " << src;
+  }
+
+  return DataType::NONE;
+}
+
+Variant MakeZero(DataType src) {
+  Variant v;
+
+  switch (src) {
+   {% for type in ARITHM_TYPES %}
+      case DataType::{{type}} :
+        get_val<DataType::{{type}}>(v) = 0;
+        return v;
+   {% endfor %}
+  default:
+    LOG(FATAL) << "Unexpected type " << src;
+  }
+}
+
+}  // namespace puma

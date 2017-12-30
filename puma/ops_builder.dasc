@@ -1,0 +1,223 @@
+||#if ((defined(_M_X64) || defined(__amd64__)) != X64)
+#error "Wrong DynASM flags used: pass `-D X64` and/or `-D WIN` to dynasm.lua as appropriate"
+#endif
+
+#include <sys/mman.h>
+
+#define DASM_ALIGNED_WRITES 1 /* aligned writing */
+#ifdef DEBUG
+  #define DASM_CHECKS 1         /* sanity checks */
+#endif
+
+#include <dynasm/dasm_proto.h>
+#include <dynasm/dasm_x86.h>
+
+#include "base/logging.h"
+#include "puma/ast_op.h"
+#include "puma/data_types.h"
+#include "puma/ops_builder.h"
+
+| .arch x64
+
+
+void* jitcode(dasm_State **state) {
+  size_t size;
+  CHECK_EQ(DASM_S_OK, dasm_link(state, &size));
+
+  // Allocate memory readable and writable so we can
+  // write the encoded instructions there.
+  char* mem = (char*)mmap(NULL, size + sizeof(size_t), PROT_READ | PROT_WRITE,
+                          MAP_ANON | MAP_PRIVATE, -1, 0);
+  CHECK(mem != MAP_FAILED);
+
+  // Store length at the beginning of the region, so we
+  // can free it without additional context.
+  *(size_t*)mem = size;
+  void *ret = mem + sizeof(size_t);
+
+  dasm_encode(state, ret);
+  dasm_free(state);
+
+  // Adjust the memory permissions so it is executable
+  // but no longer writable.
+  CHECK_EQ(0, mprotect(mem, size, PROT_EXEC | PROT_READ));
+
+  return ret;
+}
+
+
+namespace puma {
+
+// void ConstOperandFunc(const void* src, const uint8* src_def, size_t count,
+//                       const Variant& const_val, void* dest);
+// According to System V ABI: RDI, RSI, RDX, RCX, R8, R9
+// See: https://en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI
+|.define srcArg, rdi
+|.define srcDefArg, rsi
+|.define countArg, rdx
+|.define constValPtr, rcx
+|.define destArg, r8
+|.macro arith_int_op, arg1
+  | arg1 r9, [srcArg+rax*8]
+|.endmacro
+
+|.macro arith_d_op, arg1
+  | arg1 xmm0, qword [srcArg+rax*8]
+  |
+|.endmacro
+
+|.define constIntVal, r10
+|.define constDoubleVal, xmm1
+|.define constInt32Val, r10d
+
+
+#define Dst (&d)
+#define UNSUPPORTED_OP LOG(FATAL) << "Unsupported op " << aux::ToString(op)
+#define UNSUPPORTED_TYPE LOG(FATAL) << "Unsupported type " << type
+
+static void InitLoop(DataType type, dasm_State* d) {
+  switch (type) {
+    case DataType::INT64:
+    case DataType::UINT64:
+      | mov constIntVal, qword [constValPtr]
+    break;
+
+    case DataType::INT32:
+    case DataType::UINT32:
+      | mov constInt32Val, dword [constValPtr]
+    break;
+
+    case DataType::DOUBLE:
+      | movsd constDoubleVal, qword [constValPtr]
+    break;
+    default: UNSUPPORTED_TYPE;
+  }
+}
+
+static void GenArithCode(AstOp op, DataType type, dasm_State* d) {
+  switch (type) {
+    case DataType::INT64:
+    case DataType::UINT64:
+      | mov r9, constIntVal
+      switch(op) {
+        case AstOp::SUB_OP:
+          | arith_int_op sub   // sub r9, [srcArg+rax*8]
+        break;
+        case AstOp::ADD_OP:
+          | arith_int_op add
+        break;
+        case AstOp::MUL_OP:
+          | arith_int_op imul
+        break;
+        default: UNSUPPORTED_OP;
+      }
+      | mov [destArg+rax*8], r9
+    break;
+
+    case DataType::DOUBLE:
+      | movapd xmm0, constDoubleVal
+      switch(op) {
+        case AstOp::SUB_OP:
+          | arith_d_op subsd
+        break;
+        case AstOp::ADD_OP:
+          | arith_d_op addsd
+        break;
+        default: UNSUPPORTED_OP;
+      }
+      | movsd qword [destArg+rax*8], xmm0
+    break;
+    default: UNSUPPORTED_TYPE;
+  }
+}
+
+static void GenLogical(AstOp op, DataType type, dasm_State* d) {
+  switch(type) {
+    case DataType::INT64:
+    case DataType::UINT64:
+      | cmp constIntVal, [srcArg+rax*8]
+    break;
+    case DataType::UINT32:
+    case DataType::INT32:
+      | cmp constInt32Val, [srcArg+rax*4]
+    break;
+
+    default: UNSUPPORTED_TYPE;
+  }
+
+  switch(op) {
+    case AstOp::LEQ_OP:
+      | setle byte [destArg+rax]
+    break;
+    case AstOp::LT_OP:
+      | setl byte [destArg+rax]
+    break;
+    case AstOp::GT_OP:
+      | setg byte [destArg+rax]
+    break;
+    case AstOp::GEQ_OP:
+      | setge byte [destArg+rax]
+    break;
+    case AstOp::EQ_OP:
+      | setz byte [destArg+rax]
+    break;
+    default: UNSUPPORTED_OP;
+  }
+}
+
+static void GenLoopCode(AstOp op, DataType type, dasm_State* d) {
+  if (aux::IsArithmetic(op)) {
+    GenArithCode(op, type, d);
+  } else if (aux::IsLogical(op)) {
+    GenLogical(op, type, d);
+  } else {
+    UNSUPPORTED_OP;
+  }
+}
+
+ConstOperandFunc BuildConstOperandFunc(AstOp op, DataType type) {
+  |.section code
+  dasm_State* d;
+  dasm_init(&d, DASM_MAXSECTION);
+
+  |.globals lbl_
+  void* labels[lbl__MAX];
+  dasm_setupglobal(&d, labels, lbl__MAX);
+
+  |.actionlist actions
+  dasm_setup(&d, actions);
+
+  | test	countArg, countArg	// size
+  | je	>1
+  | xor	eax, eax
+
+  InitLoop(type, d);
+
+  | 4:
+  |	cmp	byte [srcDefArg+rax], 0  // if def[i]
+  |	je	>3
+
+  GenLoopCode(op, type, d);
+
+  | 3:
+  | inc	rax	// i,
+  | cmp	rax, countArg	//
+  | jb	<4  // jump backward <
+  | 1:
+  | ret
+
+#undef Dst
+
+  LOG(WARNING) << "TBD: BuildConstOperandFunc - needs to be rewrittent to fully functional module";
+  return (ConstOperandFunc)jitcode(&d);
+}
+
+
+void FreeJitFunc(void* func) {
+  void *mem = (char*)func - sizeof(size_t);
+  CHECK_EQ(0, munmap(mem, *(size_t*)mem));
+}
+
+}  // namespace puma
+
+

@@ -1,0 +1,76 @@
+// Copyright 2017, Beeri 15.  All rights reserved.
+// Author: Roman Gershman (romange@gmail.com)
+//
+#include "puma/ast_op.h"
+#include "base/logging.h"
+
+#include "puma/ast_op_traits.h"
+#include "puma/data_types.h"
+
+using std::string;
+
+namespace puma {
+{% set ALL_OPS = ['DIV_OP',  'MUL_OP',  'ADD_OP',  'SUB_OP',
+  'SHIFT_RIGHT_OP',  'SHIFT_LEFT_OP',  'CONST_VAL',
+  'GEQ_OP',  'LEQ_OP', 'GT_OP',  'LT_OP',  'EQ_OP',  'NEQ_OP',
+  'NOT_OP',  'AND_OP', 'OR_OP',  'XOR_OP', 'LEN_FN',  'DEF_FN',  'LOAD_FN',
+  'ALIGN_FN',  'RESTRICT_FN',  'REPL_FN',  'REDUCE_FN',
+  'SUM_FN',  'MAX_FN', 'CNT_FN'] %}
+{% set ARITHM_TYPES = ['INT32', 'UINT32', 'INT64', 'UINT64', 'DOUBLE', 'STRING'] %}
+{% set BINARY_OPS = ['DIV_OP', 'MUL_OP', 'ADD_OP', 'SUB_OP', 'EQ_OP', 'LT_OP'] %}
+
+namespace aux {
+
+const char* ToString(AstOp op) {
+  switch(op) {
+  {% for OP in ALL_OPS %}
+      case AstOp::{{OP}} : return "{{OP}}";
+  {% endfor %}
+  }
+
+  return nullptr;
+}
+
+template<DataType dt> bool ApplyVariantDT(AstOp op,
+    const Variant& left, const Variant& right, TypedVariant* dest) {
+   switch (op) {
+     {% for OP in BINARY_OPS %}
+       case AstOp::{{OP}} :
+        return BinaryOpVariant<dt, AstOp::{{OP}}>(left, right, dest);
+     {% endfor %}
+       default:
+        LOG(FATAL) << "Unexpected operand " << op;
+   }
+   return false;
+}
+
+template<> bool ApplyVariantDT<DataType::STRING>(AstOp op,
+    const Variant& left, const Variant& right, TypedVariant* dest) {
+
+   switch (op) {
+     {% for OP in ['EQ_OP', 'LT_OP'] %}
+       case AstOp::{{OP}} :
+         return BinaryOpVariant<DataType::STRING, AstOp::{{OP}}>(left, right, dest);
+       break;
+     {% endfor %}
+       default:
+        LOG(FATAL) << "Unexpected operand " << op;
+   }
+   return false;
+}
+
+}  // namespace aux
+
+bool ApplyVariant(DataType dt, AstOp op,
+    const Variant& left, const Variant& right, TypedVariant* dest) {
+  switch (dt) {
+   {% for type in ARITHM_TYPES %}
+      case DataType::{{type}} :
+        return aux::ApplyVariantDT<DataType::{{type}}>(op, left, right, dest);
+   {% endfor %}
+  default:
+    LOG(FATAL) << "Unexpected type " << dt << " with op " << op;
+  }
+}
+
+}  // namespace puma

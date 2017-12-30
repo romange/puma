@@ -1,0 +1,37 @@
+// Copyright 2017, Beeri 15.  All rights reserved.
+// Author: Roman Gershman (romange@gmail.com)
+//
+syntax = "proto2";
+
+import "puma/puma_types.proto";
+
+package puma.storage;
+
+message Table {
+  required string pb_type = 1;
+  required bytes fd_set = 2;
+}
+
+message SliceIndex {
+  required string name = 1;
+  required FieldClass fc = 2;
+  required DataType data_type = 3;
+  optional uint32 codec_id = 6;
+
+  // Does not include volume header (4 bytes).
+  message Slice {
+    // offset inside the volume. delta encoded (to support volumes larger than 4GB).
+    required uint32 offset = 1;
+    required uint32 len = 2;
+
+    // If dict is set then this slice uses dictionary.
+    // if dict_len is set then this slice contains dictionary blob at the beginning.
+    // If dict_slice_id is set then this slice uses dictionary defined in earlier slice (dict_slice_id).
+    oneof dict {
+      uint32 dict_len = 3;
+      uint32 dict_slice_id = 4;
+    }
+  }
+
+  repeated Slice slice = 4;
+}
