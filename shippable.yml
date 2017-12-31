@@ -20,7 +20,7 @@ build:
   ci:
     - pip install jinja2
     - ./gaia/install-dependencies.sh
-    - git submodule update --recursive
+    - git submodule update --init --recursive
     - mkdir -p shippable/testresults $BUILD_DIR && cd $BUILD_DIR
     - cmake -L -DCMAKE_BUILD_TYPE=Debug .. -DCMAKE_CXX_COMPILER=g++ -GNinja ..
     - ninja -j4 base status gtest_project
