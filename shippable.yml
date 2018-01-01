@@ -4,7 +4,7 @@ compiler:
   - gcc
 
 env:
-  - BUILD_DIR=build-dbg
+  - BUILD_DIR=build-dbg LSAN_OPTIONS=suppressions=$HOME/supress.txt
 
 build:
   pre_ci_boot:
@@ -19,6 +19,7 @@ build:
 
   ci:
     - pip install jinja2
+    - printf "leak:MallocExtension\nleak:event_base_once" > $HOME/supress.txt
     - ./gaia/install-dependencies.sh
     - git submodule update --init --recursive
     - mkdir -p shippable/testresults $BUILD_DIR && cd $BUILD_DIR
