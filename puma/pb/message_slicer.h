@@ -8,8 +8,6 @@
 #include <vector>
 
 #include "base/arena.h"
-#include "base/status.h"
-
 #include "file/file.h"
 
 #include "puma/pb/fd_path.h"

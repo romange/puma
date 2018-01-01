@@ -8,7 +8,6 @@
 #include "base/logging.h"
 
 #include "puma/file/volume_writer.h"
-#include "puma/pb/block_compressor.h"
 #include "puma/pb/util.h"
 
 #include "strings/strcat.h"
@@ -16,7 +15,7 @@
 
 namespace puma {
 namespace pb {
-using base::Status;
+using util::Status;
 using namespace std;
 using strings::ByteRange;
 

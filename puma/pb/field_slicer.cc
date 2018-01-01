@@ -5,9 +5,9 @@
 
 #include <google/protobuf/reflection.h>
 
-#include "base/commandlineflags.h"
+#include "base/flags.h"
 #include "base/logging.h"
-#include "base/status.h"
+
 #include "base/stl_util.h"
 #include "puma/file/volume_writer.h"
 
