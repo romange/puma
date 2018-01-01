@@ -19,5 +19,9 @@ add_include(puma_test_utils ${GTEST_INCLUDE_DIR})
 
 cxx_test(schema_test puma_base LABELS CI)
 
+add_executable(import_volume import_volume.cc)
+cxx_link(import_volume file puma_write_file pb_slicer task_pool storage_proto
+         fast_malloc stdc++fs)
+
 add_subdirectory(pb)
 add_subdirectory(file)

@@ -19,8 +19,8 @@ DEFINE_bool(bin, false, "");
 using namespace puma;
 using namespace std;
 using strings::MutableByteRange;
-using base::StatusCode;
-using base::Status;
+using util::StatusCode;
+using util::Status;
 
 namespace {
 void PrintU64(const uint64* num, unsigned cnt) {
