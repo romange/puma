@@ -15,3 +15,4 @@ cxx_link(ops_builder_dasm puma_base)
 
 cxx_test(schema_test puma_base LABELS CI)
 
+add_subdirectory(pb)
