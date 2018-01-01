@@ -26,7 +26,7 @@ build:
     - ninja -j4 base status gtest_project
     - tests_list=$(ctest -L CI -N | grep "Test.*#" | cut -f2 -d:| sort)
     - ninja $tests_list -k 10
-    - echo $tests_list |  xargs -n1 -t ../scripts/gaia/run_test.sh -l ../shippable/testresults -t 25 --name
+    - echo $tests_list |  xargs -n1 -t ../gaia/scripts/run_test.sh -l ../shippable/testresults -t 25 --name
 
   on_failure:
     - pwd
