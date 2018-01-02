@@ -1,0 +1,22 @@
+{
+    "clang.executable": "clang-3.8",
+    "clang.cxxflags": [
+    "-I${workspaceRoot}",
+    "-I${workspaceRoot}/genfiles",
+    "-I${workspaceRoot}/gaia",
+    "-I${workspaceRoot}/third_party/libs/benchmark/include",
+    "-I${workspaceRoot}/third_party/libs/gtest/include/",
+    "-I${workspaceRoot}/third_party/libs/protobuf/include/",
+    "-I${workspaceRoot}/third_party/libs/sparsehash/include/",
+    "-I${workspaceRoot}/third_party/libs/gflags/include/",
+    "-I${workspaceRoot}/third_party/libs/glog/include/",
+    "-I${workspaceRoot}/third_party/libs/pmr/include/",
+    "-I${workspaceRoot}/third_party/include/",
+    "-Wall"
+  ],
+  "editor.tabSize": 2,
+  "files.exclude": {
+    "**/.git": true,
+    "build-opt" : true,
+  },
+}
