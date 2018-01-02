@@ -229,6 +229,10 @@ int main(int argc, char **argv) {
 
   LOG(INFO) << "Opened volume with " << vol_reader.frame_count() << " frames";
 
+  for (const auto& si : vol_reader.sinfo_array()) {
+    VLOG(1) << "SI: " << si.name() << " " << si.data_type();
+  }
+
   for (int i = 1; i < argc; ++i) {
     StringPiece slice_name(argv[i]);
 
@@ -237,8 +241,10 @@ int main(int argc, char **argv) {
 
     DataType dt = DataType(it->provider()->dt());
 
-    if (!FLAGS_bin)
+    if (!FLAGS_bin) {
       fprintf(stdout, "Slice %s %s:\n", argv[i], DataType_Name(dt).c_str());
+    }
+
     size_t disk_sz = 0;
     for (const auto& slice : it->slice_index().slice()) {
       disk_sz += (slice.len() + slice.dict_len());
