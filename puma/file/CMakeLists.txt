@@ -11,5 +11,5 @@ cxx_link(puma_slice_file puma_write_file puma_read_file)
 cxx_test(volume_test file puma_write_file puma_read_file pb_slicer puma_test_utils addressbook_proto LABELS CI)
 
 add_executable(vol_print vol_print.cc)
-cxx_link(vol_print puma_pb_util puma_read_file fast_malloc)
+cxx_link(vol_print puma_pb_util puma_read_file fibers fast_malloc)
 
