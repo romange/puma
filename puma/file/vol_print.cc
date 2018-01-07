@@ -126,10 +126,78 @@ struct Item {
   Item& operator=(Item&&) = default;
 };
 
-typedef fibers::buffered_channel<Item> ReadQueue;
+typedef fibers::buffered_channel<Item> CompletionQueue;
 constexpr unsigned kCompletionQueueLen = 16;
 
-void ReadRequests(ReadQueue* q, unsigned* queue_len) {
+void PrintSingleFrame(VolumeProvider* provider) {
+  DataType dt = provider->dt();
+  unsigned dt_size = aux::DataTypeSize(dt);
+  constexpr unsigned kBufSize = 4096;
+
+  uint64_t items = 0;
+  uint32_t fetched_size;
+  if (dt == DataType::BOOL) {
+    uint8 buf[kBufSize];
+    SlicePtr sptr(buf);
+
+    while (provider->has_data_to_read()) {
+      CHECK_STATUS(provider->GetPage(arraysize(buf), sptr, &fetched_size));
+
+      items += fetched_size;
+      PrintBool(buf, fetched_size);
+    }
+  } else if (dt_size == 8) {
+    std::unique_ptr<uint64[]> num(new uint64[kBufSize]);
+    SlicePtr sptr(num.get());
+
+    while (provider->has_data_to_read()) {
+      CHECK_STATUS(provider->GetPage(kBufSize, sptr, &fetched_size));
+      items += fetched_size;
+
+      if (!FLAGS_skip_print) {
+        switch(dt) {
+          case DataType::UINT64:
+            PrintU64(num.get(), fetched_size);
+          break;
+          case DataType::INT64:
+            PrintI64(reinterpret_cast<int64_t*>(num.get()), fetched_size);
+          break;
+          case DataType::DOUBLE:
+            PrintDouble(reinterpret_cast<double*>(num.get()), fetched_size);
+          break;
+          default:
+           LOG(FATAL) << "TBD" << dt;
+        }
+      }
+    }
+  } else if (dt_size == 4) {
+    std::unique_ptr<uint32[]> num(new uint32[kBufSize]);
+    SlicePtr sptr(num.get());
+
+    while (provider->has_data_to_read()) {
+      CHECK_STATUS(provider->GetPage(kBufSize, sptr, &fetched_size));
+      items += fetched_size;
+
+      if (!FLAGS_skip_print) {
+        switch(dt) {
+          case DataType::UINT32:
+           PrintU32(num.get(), fetched_size);
+          break;
+          case DataType::INT32:
+           PrintI32(reinterpret_cast<int32_t*>(num.get()), fetched_size);
+          break;
+          default:
+           LOG(FATAL) << "TBD" << dt;
+        }
+      }
+    }
+  } else {
+    LOG(FATAL) << "TBD: " << dt;
+  }
+  VLOG(1) << "Processed " << items << " items";
+}
+
+void ProcessFrames(CompletionQueue* q, VolumeProvider* vp, unsigned* queue_len) {
   channel_op_status st;
   Item item;
 
@@ -142,6 +210,9 @@ void ReadRequests(ReadQueue* q, unsigned* queue_len) {
     item.read_result.get();
 
     --(*queue_len);
+    vp->SetCurrentSlice(StringPiece(item.buf));
+    PrintSingleFrame(vp);
+
     ++reads;
     if (*queue_len < kCompletionQueueLen / 4)
       boost::this_fiber::yield();
@@ -149,26 +220,30 @@ void ReadRequests(ReadQueue* q, unsigned* queue_len) {
   LOG(INFO) << "Processed " << reads << " reads";
 }
 
-void PrintAsync(const SliceIndex& si) {
+void PrintAsync(const SliceIndex& si, VolumeIterator* vi) {
   int fd = open(FLAGS_table.c_str(), O_RDONLY, 0644);
   CHECK_GT(fd, 0);
+  posix_fadvise(fd, 0, 0, POSIX_FADV_RANDOM);
 
   FileIOManager io_mgr(FLAGS_threads, FLAGS_io_len);
 
-  ReadQueue read_channel(kCompletionQueueLen);
-  size_t offset = 0;
+  CompletionQueue read_channel(kCompletionQueueLen);
+  size_t offset = 4;  // Start of the volume data.
   unsigned queue_len = 0;
-  fibers::fiber read_fiber(fibers::launch::post, &ReadRequests, &read_channel, &queue_len);
+  fibers::fiber read_fiber(fibers::launch::post, &ProcessFrames, &read_channel,
+                           vi->provider(), &queue_len);
 
   for (int i = 0; i < si.slice_size(); ++i) {
     const SliceIndex::Slice& slice = si.slice(i);
     CHECK_GT(slice.len(), 0);
+    CHECK(!slice.has_dict_len());
 
     offset += slice.offset();
     Item item;
     item.holder.reset(new uint8_t[slice.len()]);
     item.buf.reset(item.holder.get(), slice.len());
 
+    VLOG(1) << "Reading from offset " << offset << ", len: " << slice.len();
     item.read_result = io_mgr.Read(fd, offset, item.buf);
 
     channel_op_status st = read_channel.push(std::move(item));
@@ -185,77 +260,12 @@ void PrintAsync(const SliceIndex& si) {
 
 void PrintSlice(VolumeIterator* vi) {
   VolumeProvider* provider = vi->provider();
-  DataType dt = provider->dt();
-  unsigned dt_size = aux::DataTypeSize(dt);
-
-  constexpr unsigned kBufSize = 4096;
   unsigned iteration = 0;
-  uint32_t fetched_size;
 
   while (vi->NextFrame()) {
     VLOG(1) << "Printing slice " << provider->name() << ", iteration " << iteration++;
+    PrintSingleFrame(vi->provider());
 
-    uint64_t items = 0;
-
-    if (dt == DataType::BOOL) {
-      uint8 buf[kBufSize];
-      SlicePtr sptr(buf);
-
-      while (provider->has_data_to_read()) {
-        CHECK_STATUS(provider->GetPage(arraysize(buf), sptr, &fetched_size));
-
-        items += fetched_size;
-        PrintBool(buf, fetched_size);
-      }
-    } else if (dt_size == 8) {
-      std::unique_ptr<uint64[]> num(new uint64[kBufSize]);
-      SlicePtr sptr(num.get());
-
-      while (provider->has_data_to_read()) {
-        CHECK_STATUS(provider->GetPage(kBufSize, sptr, &fetched_size));
-        items += fetched_size;
-
-        if (!FLAGS_skip_print) {
-          switch(dt) {
-            case DataType::UINT64:
-              PrintU64(num.get(), fetched_size);
-            break;
-            case DataType::INT64:
-              PrintI64(reinterpret_cast<int64_t*>(num.get()), fetched_size);
-            break;
-            case DataType::DOUBLE:
-              PrintDouble(reinterpret_cast<double*>(num.get()), fetched_size);
-            break;
-            default:
-             LOG(FATAL) << "TBD" << dt;
-          }
-        }
-      }
-    } else if (dt_size == 4) {
-      std::unique_ptr<uint32[]> num(new uint32[kBufSize]);
-      SlicePtr sptr(num.get());
-
-      while (provider->has_data_to_read()) {
-        CHECK_STATUS(provider->GetPage(kBufSize, sptr, &fetched_size));
-        items += fetched_size;
-
-        if (!FLAGS_skip_print) {
-          switch(dt) {
-            case DataType::UINT32:
-             PrintU32(num.get(), fetched_size);
-            break;
-            case DataType::INT32:
-             PrintI32(reinterpret_cast<int32_t*>(num.get()), fetched_size);
-            break;
-            default:
-             LOG(FATAL) << "TBD" << dt;
-          }
-        }
-      }
-    } else {
-      LOG(FATAL) << "TBD: " << dt;
-    }
-    VLOG(1) << "Processed " << items << " items";
   }
 }
 
@@ -338,7 +348,7 @@ int main(int argc, char** argv) {
       PrintStrings(it.get(), str_len_it.get());
     } else {
       if (FLAGS_threads > 0) {
-        PrintAsync(it->slice_index());
+        PrintAsync(it->slice_index(), it.get());
       } else {
         PrintSlice(it.get());
       }

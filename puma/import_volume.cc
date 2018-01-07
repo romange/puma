@@ -1,7 +1,11 @@
 // Copyright 2017, Beeri 15.  All rights reserved.
 // Author: Roman Gershman (romange@gmail.com)
 //
-
+// Example run:
+/* ./import_volume  --output_dir ~/data/nyc_vol --schema \
+    ~/project/gavroche-mr/puma/examples/schema.proto:NycRide \
+    --table nyc ~/data/nyc/nyc000000000[0,1,2,3]*gz
+*/
 #include <mutex>
 #include <iostream>
 #include <experimental/filesystem>
