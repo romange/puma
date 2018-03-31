@@ -11,14 +11,13 @@
 #include "base/stl_util.h"
 
 #include "file/file.h"
-#include "util/coding/int_coder.h"
+#include "puma/file/int_coder.h"
 
 namespace puma {
 
 using util::StatusObject;
 using util::StatusCode;
 using strings::MutableByteRange;
-using util::IntDecoder;
 
 constexpr uint32 kMagicNum = 12051977;
 
@@ -109,7 +108,7 @@ FileLz4Decoder::FileLz4Decoder(size_t max_items_in_block, util::Source* src)
 
 FileLz4Decoder::~FileLz4Decoder() {}
 
-base::StatusObject<size_t> FileLz4Decoder::Read(size_t max_size, uint32* dest) {
+StatusObject<size_t> FileLz4Decoder::Read(size_t max_size, uint32* dest) {
   if (int32_range_.empty()) {
     if (compressed_buf_.size() < 4)
       FillCompressBuf(512);
@@ -207,7 +206,7 @@ ZstdBlobDecoder::~ZstdBlobDecoder() {
   ZSTD_freeDStream(DC_HANDLE);
 }
 
-base::StatusObject<size_t> ZstdBlobDecoder::Read(size_t max_size, uint8* dest) {
+StatusObject<size_t> ZstdBlobDecoder::Read(size_t max_size, uint8* dest) {
   ZSTD_outBuffer output = { dest, max_size, 0 };
 
    do {

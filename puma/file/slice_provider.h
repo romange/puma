@@ -19,7 +19,7 @@ class ColumnProvider : public BareSliceProvider {
 
   static ColumnProvider* Open(const std::string& file_name);
 
-  base::Status GetPage(uint32 max_size, SlicePtr dest, uint32* fetched_size) override;
+  util::Status GetPage(uint32 max_size, SlicePtr dest, uint32* fetched_size) override;
 
   const FileHeader& file_header() const { return fh_; }
 

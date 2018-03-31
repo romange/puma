@@ -17,7 +17,7 @@
 #include "strings/util.h"
 
 using std::string;
-using base::Status;
+using util::Status;
 
 constexpr unsigned kMaxIntsInBlock = 1 << 17;
 

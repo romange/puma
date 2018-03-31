@@ -6,9 +6,9 @@
 #include "puma/file/slice_writer.h"
 
 #include "puma/file/slice_format.h"
-#include "util/sinksource.h"
-#include "util/coding/int_coder.h"
+#include "puma/file/int_coder.h"
 
+#include "util/sinksource.h"
 
 namespace puma {
 
@@ -39,14 +39,14 @@ class IntBlobSerializer  : public BlobSerializer {
   }
 
   template<typename T> void AddIntChunk(const T* ptr, size_t len) {
-    size_t capacity = buf_ptr_->size() + util::IntCoder::MaxComprSize<T>(len);
+    size_t capacity = buf_ptr_->size() + IntCoder::MaxComprSize<T>(len);
     buf_ptr_->reserve(capacity);
     size_t sz = int_coder_->EncodeT(ptr, len, buf_ptr_->end());
     buf_ptr_->resize_assume_reserved(buf_ptr_->size() + sz);
   }
 
  private:
-  std::unique_ptr<util::IntCoder> int_coder_;
+  std::unique_ptr<IntCoder> int_coder_;
 
 };
 

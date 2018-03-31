@@ -18,10 +18,8 @@
 
 #include "strings/strcat.h"
 
-using base::StatusCode;
+using util::StatusCode;
 using strings::ByteRange;
-
-using util::IntCoder;
 
 namespace puma {
 
@@ -39,7 +37,7 @@ BlobSerializer::BlobSerializer(base::PODArray<uint8>* dest) : buf_ptr_(dest ? de
 }
 
 IntBlobSerializer::IntBlobSerializer(base::PODArray<uint8>* dest) : BlobSerializer(dest) {
-  int_coder_.reset(new util::IntCoder(5));
+  int_coder_.reset(new IntCoder(5));
 }
 
 IntBlobSerializer::~IntBlobSerializer() {}
