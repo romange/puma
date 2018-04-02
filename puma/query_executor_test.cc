@@ -20,7 +20,7 @@
 #include "strings/strpmr.h"
 
 using namespace std;
-using namespace base;
+using util::Status;
 using namespace placeholders;
 
 using testing::Each;
@@ -793,10 +793,10 @@ class BenchmarkBareSliceProvider : public BareSliceProvider {
   BenchmarkBareSliceProvider(string bare_name, DataType dt, BenchStateFlag& flag)
     : BareSliceProvider(bare_name, dt), flag_(flag) {}
 
-  base::Status GetPage(uint32 max_size, SlicePtr dest, uint32* fetched_size) override;
+  Status GetPage(uint32 max_size, SlicePtr dest, uint32* fetched_size) override;
 };
 
-base::Status BenchmarkBareSliceProvider::GetPage(
+Status BenchmarkBareSliceProvider::GetPage(
   uint32 max_size, SlicePtr dest, uint32* fetched_size) {
   if (flag_.IsFinished()) {
     has_data_to_read_ = false;

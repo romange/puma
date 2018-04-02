@@ -30,6 +30,7 @@ add_include(query_executor_test_env ${GTEST_INCLUDE_DIR})
 cxx_test(schema_test puma_base LABELS CI)
 cxx_test(hash_table_test puma_lib LABELS CI)
 cxx_test(operator_test puma_lib query_executor_test_env LABELS CI)
+cxx_test(query_executor_test query_executor_test_env LABELS CI)
 
 
 add_executable(import_volume import_volume.cc)

@@ -68,11 +68,10 @@ template<typename T> uint32_t IntCoder::EncodeT(const T* source, uint32_t isize,
 
   size_t src_size = isize * kValSize;
   uint32* dest32 = reinterpret_cast<uint32*>(dest);
-  uint32* header = dest32++;
+  dest32++;
+  uint32 header = 0;
 
   unsigned bytew = kValSize - 1; // by default no byte width reduction.
-
-  *header = 0;
 
   size_t base_added = 0;  // header.
 
@@ -93,7 +92,7 @@ template<typename T> uint32_t IntCoder::EncodeT(const T* source, uint32_t isize,
     bytew = byte_width(maxv);
 
     if (rangew < bytew) {
-      *header |= kSubstractBaseBit;
+      header |= kSubstractBaseBit;
       LittleEndian::StoreT<T>(minv, dest32);
 
       dest32 += kValSize / 4;
@@ -119,18 +118,21 @@ template<typename T> uint32_t IntCoder::EncodeT(const T* source, uint32_t isize,
   }
   DCHECK_LE(src_size + base_added, kLenMask);
 
-  *header |= ((bytew & 7) << kByteWidthBitStart);
+  header |= ((bytew & 7) << kByteWidthBitStart);
   size_t dst_capacity = ZSTD_compressBound(src_size);
   size_t res = ZSTD_compress(dest32, dst_capacity, usrc, src_size, level_);
   CHECK(!ZSTD_isError(res));
   VLOG(1) << "Compressing from " << src_size << " to " << res;
 
   if (res < src_size) {
-    *header |= ((res + base_added) | (1U << 31));  // zstd compressed.
+    header |= ((res + base_added) | (1U << 31));  // zstd compressed.
+    LittleEndian::Store32(dest, header);
     return res + base_added + 4;
   }
 
-  *header |= (src_size + base_added);  // raw block.
+  header |= (src_size + base_added);  // raw block.
+  LittleEndian::Store32(dest, header);
+
   memcpy(dest32, usrc, src_size);
   ++stats_.raw_cnt;
 
