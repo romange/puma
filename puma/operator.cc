@@ -3,8 +3,6 @@
 //
 
 #include "puma/operator.h"
-// #include "puma/ops.h"
-
 #include "base/logging.h"
 #include "base/stl_util.h"
 

@@ -38,6 +38,10 @@ void VariantArray::Reserve(size_t new_capacity) {
   if (data_.u8ptr) {
     upstream_->deallocate(data_.u8ptr, type_size_ * capacity_);
   }
+
+#ifndef NDEBUG
+  memset(new_ptr + capacity_ * type_size_, 0, (new_capacity - capacity_) * type_size_);
+#endif
   data_.u8ptr = new_ptr;
   capacity_ = new_capacity;
 }
