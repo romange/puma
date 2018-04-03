@@ -7,4 +7,5 @@ cxx_link(pb_slicer base file status strings proto_writer TRDP::pmr puma_pb_util 
 cxx_test(int_compressor_test puma_pb_util LABELS CI)
 
 add_executable(lst2col lst2col.cc)
-cxx_link(lst2col file pprint_utils proto_writer pb_slicer puma_file threads puma_pb_util fast_malloc)
+cxx_link(lst2col file pprint_utils proto_writer pb_slicer puma_write_file
+         puma_pb_util task_pool fast_malloc)

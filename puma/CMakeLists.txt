@@ -37,6 +37,9 @@ add_executable(import_volume import_volume.cc)
 cxx_link(import_volume file puma_write_file pb_slicer task_pool storage_proto
          fast_malloc stdc++fs)
 
+add_executable(puma_client puma_client.cc)
+cxx_link(puma_client file puma_lib puma_pb_util pprint_utils storage_proto fast_malloc)
+
 add_subdirectory(parser)
 add_subdirectory(pb)
 add_subdirectory(file)

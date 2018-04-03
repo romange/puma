@@ -6,6 +6,7 @@
 #include <gperftools/malloc_extension.h>
 
 #include "base/init.h"
+#include "base/map-util.h"
 #include "base/pod_array.h"
 #include "base/stl_util.h"
 
@@ -22,8 +23,7 @@
 #include "strings/strcat.h"
 #include "strings/util.h"
 
-#include "util/map-util.h"
-#include "util/tools/pprint_utils.h"
+#include "util/pprint/pprint_utils.h"
 
 #include "util/sp_task_pool.h"
 
@@ -37,7 +37,7 @@ DEFINE_string(unordered_set, "", "");
 
 using std::string;
 using puma::DataType;
-using base::StatusCode;
+using util::StatusCode;
 
 using namespace puma::pb;
 
