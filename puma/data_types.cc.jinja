@@ -48,12 +48,12 @@ uint8 DataTypeSize(DataType dt) {
 std::string TypedVariant::ToString() const {
   string res;
 
-  StrAppend(&res, DataType_Name(type), "(");
+  absl::StrAppend(&res, DataType_Name(type), "(");
 
   switch (type) {
   {% for type in ALL_TYPES %}
       case DataType::{{type}} :
-        StrAppend(&res, get_val<DataType::{{type}}>(variant));
+        absl::StrAppend(&res, get_val<DataType::{{type}}>(variant));
       break;
   {% endfor %}
     default:;

@@ -9,7 +9,7 @@ namespace puma {
 namespace schema {
 
 using namespace std;
-
+using strings::AsString;
 
 void Node::AddChild(StringPiece name, const Attribute* attr) {
   CHECK(fields_.emplace(name, attr).second) << name;
@@ -18,7 +18,7 @@ void Node::AddChild(StringPiece name, const Attribute* attr) {
 
 string Attribute::Path() const {
   if (!parent_) {
-    return name_.as_string();
+    return AsString(name_);
   }
 
   string res = parent_->Path();
@@ -74,11 +74,11 @@ const Attribute* Table::AddWithPath(StringPiece path, DataType type,
   if (pos == StringPiece::npos)
     return Add(path, type, ordinality);
 
-  StringPiece prefix(path, 0, pos);
+  StringPiece prefix = path.substr(0, pos);
   const Attribute* parent = LookupByPath(prefix);
   CHECK(parent) << prefix;
 
-  path.advance(pos + 1);
+  path.remove_prefix(pos + 1);
   VLOG(1) << "Adding " << path << " to " << prefix;
   return Add(path, type, ordinality, parent);
 }
@@ -91,14 +91,14 @@ const Attribute* Table::LookupByPath(StringPiece path) const {
   const Attribute* res = nullptr;
   while (true) {
     size_t pos = path.find('.');
-    StringPiece name(path, 0, pos);
+    StringPiece name = path.substr(0, pos);
     auto it = map->find(name);
     if (it == map->end())
       return nullptr;
     res = it->second;
     if (pos == StringPiece::npos)
       break;
-    path.advance(pos + 1);
+    path.remove_prefix(pos + 1);
     map = &res->fields();
   }
   return res;
